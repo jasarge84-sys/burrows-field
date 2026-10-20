@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Burrows Field Matchday</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a matchday board. Week stepper on top, then each day's games by kick-off (or by pitch), every game led by a chalk-lined pitch badge. */
+:root{
+  --bg:#f2f5f0; --surface:#ffffff; --fg:#17211b; --muted:#5b6a60; --line:#d8dfd5;
+  --grass:#1e6a39; --grass-2:#e3efe6; --chalk:#ffffff; --warn:#a4400f; --warn-bg:#fbe9df;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1511; --surface:#16201a; --fg:#e5ece6; --muted:#93a398; --line:#26342b;
+  --grass:#2f8a4f; --grass-2:#1b2d21; --chalk:#f4f7f2; --warn:#f0a07a; --warn-bg:#3a2016; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1511; --surface:#16201a; --fg:#e5ece6; --muted:#93a398; --line:#26342b;
+  --grass:#2f8a4f; --grass-2:#1b2d21; --chalk:#f4f7f2; --warn:#f0a07a; --warn-bg:#3a2016; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 16px;border-bottom:3px solid var(--grass);padding-bottom:12px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(2.2rem,8vw,3.2rem);line-height:.95;margin:0;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0}
+.stamp{color:var(--muted);font-size:12.5px;text-align:right}
+.stamp a{color:inherit}
+.controls{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.week{display:flex;align-items:center;gap:6px;min-width:0}
+.week b{font-family:var(--display);font-weight:600;font-size:1.45rem;letter-spacing:.02em;flex:1;text-align:center;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button,select{font:inherit;color:var(--fg)}
+.step{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:20px;cursor:pointer;flex:none}
+.step:disabled{opacity:.35;cursor:default}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;background:var(--surface);padding:3px}
+.seg button{border:0;background:none;padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:500;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--grass);color:var(--chalk)}
+.teamrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.teamrow label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+select{flex:1;min-width:0;max-width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
+.clear{border:0;background:none;color:var(--grass);font-weight:600;cursor:pointer;padding:6px}
+:focus-visible{outline:2px solid var(--grass);outline-offset:2px}
+.day{display:flex;flex-direction:column;gap:10px}
+.dayhead{display:flex;align-items:baseline;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:6px;z-index:2}
+.dayhead h2{font-family:var(--display);font-weight:700;font-size:1.6rem;text-transform:uppercase;margin:0;letter-spacing:.02em}
+.dayhead span{color:var(--muted);font-size:13px}
+.today{background:var(--grass);color:var(--chalk);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:999px}
+.slot{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:start}
+.ko{font-family:var(--display);font-weight:600;font-size:1.5rem;font-variant-numeric:tabular-nums;padding-top:8px}
+.games{display:flex;flex-direction:column;gap:8px;min-width:0}
+.game{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.game.mine{border-color:var(--grass);box-shadow:0 0 0 1px var(--grass) inset}
+.pitch{width:48px;height:56px;border-radius:6px;background:var(--grass);color:var(--chalk);display:grid;place-items:center;position:relative;font-family:var(--display);font-weight:700;font-size:1.45rem;line-height:1}
+.pitch::before{content:"";position:absolute;inset:5px;border:1.5px solid color-mix(in srgb,var(--chalk) 70%,transparent);border-radius:2px}
+.pitch::after{content:"";position:absolute;left:5px;right:5px;top:50%;border-top:1.5px solid color-mix(in srgb,var(--chalk) 70%,transparent)}
+.pitch small{position:absolute;top:-7px;left:50%;transform:translateX(-50%);font-family:var(--body);font-size:9px;font-weight:600;letter-spacing:.1em;background:var(--surface);color:var(--muted);padding:0 4px;border-radius:3px;text-transform:uppercase}
+.pitch span{position:relative;z-index:1;background:var(--grass);padding:0 3px}
+.teams{min-width:0;display:flex;flex-direction:column;gap:2px}
+.vs{font-weight:600;overflow-wrap:anywhere}
+.vs i{font-style:normal;color:var(--muted);font-weight:400;margin:0 4px}
+.club{color:var(--muted);font-weight:400}
+.meta{font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.chip{font-size:11px;font-weight:600;letter-spacing:.04em;padding:1px 7px;border-radius:999px;background:var(--grass-2);color:var(--grass)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)}
+.note{font-size:12.5px;color:var(--fg);background:var(--grass-2);border-radius:8px;padding:5px 8px;margin-top:4px}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.pcard header{border:0;padding:0;align-items:center;justify-content:flex-start;gap:10px}
+.pcard h3{font-family:var(--display);font-size:1.3rem;margin:0;text-transform:uppercase}
+.pcard ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.pcard li{display:grid;grid-template-columns:46px 1fr;gap:8px;border-top:1px solid var(--line);padding-top:8px;min-width:0}
+.pcard li.mine .vs{color:var(--grass)}
+.pcard .t{font-family:var(--display);font-weight:600;font-size:1.15rem;font-variant-numeric:tabular-nums}
+.stale{margin:0;font-size:13px;background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:24px;text-align:center;color:var(--muted)}
+.mylist{display:flex;flex-direction:column;gap:8px}
+.mylist .game{grid-template-columns:auto 1fr}
+.date{font-family:var(--display);font-weight:600;font-size:1.05rem;text-transform:uppercase;letter-spacing:.02em}
+footer{color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:12px}
+@media (max-width:520px){
+  .stamp{text-align:left}
+  .controls{grid-template-columns:1fr}
+  .seg{justify-self:start}
+  .slot{grid-template-columns:1fr;gap:4px}
+  .ko{padding-top:0;font-size:1.3rem}
+}
+@media (prefers-reduced-motion:no-preference){.game,.pcard{transition:border-color .15s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Burrows Field</h1>
+      <p class="sub">Leckhampton Rovers home fixtures and pitch allocations</p>
+    </div>
+    <div class="stamp" id="stamp"></div>
+  </header>
+
+  <div class="controls">
+    <div class="week">
+      <button class="step" id="prev" aria-label="Previous weekend">‹</button>
+      <b id="weeklabel"></b>
+      <button class="step" id="next" aria-label="Next weekend">›</button>
+    </div>
+    <div class="seg" role="group" aria-label="View">
+      <button id="v-time" aria-pressed="true">By kick-off</button>
+      <button id="v-pitch" aria-pressed="false">By pitch</button>
+    </div>
+  </div>
+
+  <div class="teamrow">
+    <label for="team">My team</label>
+    <select id="team"><option value="">All games</option></select>
+    <button class="clear" id="clear" hidden>Show all</button>
+  </div>
+
+  <p class="stale" id="stale" hidden></p>
+  <main id="out"><div class="empty">Loading fixtures…</div></main>
+
+  <footer>Fixtures and pitch numbers come from FA Full-Time, covering the Cheltenham Youth Football League, the Gloucester County Girls League and the County Cups. The list is checked every Monday and Friday evening. A game only appears here once the league has published it. Times and pitches can change, so check with your manager if a game looks wrong.</footer>
+</div>
+
+<script>
+
+const HOME = "Leckhampton Rovers Youth ";
+const FT_URL = "https://fulltime.thefa.com/fixtures.html?selectedSeason=688737730&selectedDateCode=all&selectedRelatedFixtureOption=3";
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const store = { get(k){ try { return localStorage.getItem(k) } catch(e){ return null } }, set(k,v){ try { v==null ? localStorage.removeItem(k) : localStorage.setItem(k,v) } catch(e){} } };
+
+let games = [], weeks = [], wi = 0, allTeams = [];
+function prepare(fixtures){
+  games = fixtures.map(f => ({...f,
+    // A 5v5 pitch #1 in the Girls League is marked out separately from 11v11 pitch #1
+    pk: f.pitch + (f.format === "5v5" ? " · 5v5" : ""),
+    off: /postpon|cancel|abandon|void|walkover|withdrawn/i.test(f.notes)}));
+  // Two live games on the same pitch at the same kick-off
+  const slotCount = {};
+  games.forEach(g => { if (!g.off){ const k = g.date + g.time + g.pk; slotCount[k] = (slotCount[k] || 0) + 1 } });
+  games.forEach(g => { g.clash = !g.off && slotCount[g.date + g.time + g.pk] > 1 });
+}
+
+function teamLabel(n){
+  if (n.startsWith(HOME)) return {name: n.slice(HOME.length), ours: true};
+  return {name: n.replace(/ \(?Youth\)?(?= )/,"").replace(/ Youth FC/," FC"), ours: false};
+}
+const pitchKey = p => { const m = /^(\d+)([A-Z]?)(.*)$/.exec(p) || [0, 99, "", p]; return +m[1] * 100 + (m[2] ? 10 : 0) + (m[3] ? 1 : 0) };
+const dObj = s => new Date(s + "T12:00:00");
+const ymd = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+const fmtDay = s => dObj(s).toLocaleDateString("en-GB",{weekday:"long", day:"numeric", month:"long"});
+const fmtShort = s => dObj(s).toLocaleDateString("en-GB",{weekday:"short", day:"numeric", month:"short"});
+function weekStart(s){ const d = dObj(s); d.setDate(d.getDate() - ((d.getDay()+6)%7)); return ymd(d) }
+
+const today = ymd(new Date());
+let view = store.get("bf-view") === "pitch" ? "pitch" : "time";
+let team = store.get("bf-team") || "";
+const sel = $("#team");
+
+function setup(){
+  // Weeks with games at Burrows Field
+  weeks = [...new Set(games.map(g => weekStart(g.date)))].sort();
+  wi = weeks.findIndex(w => { const e = dObj(w); e.setDate(e.getDate()+6); return ymd(e) >= today });
+  if (wi < 0) wi = weeks.length - 1;
+
+  // Team picker: Leckhampton teams first, then visitors
+  allTeams = [...new Set(games.flatMap(g => [g.home, g.away]))];
+  const ours = allTeams.filter(t => t.startsWith(HOME)).sort((a,b) => teamLabel(a).name.localeCompare(teamLabel(b).name, "en", {numeric:true}));
+  const others = allTeams.filter(t => !t.startsWith(HOME)).sort();
+  [["Leckhampton Rovers", ours], ["Visiting teams", others]].forEach(([label, list]) => {
+    const og = document.createElement("optgroup"); og.label = label;
+    list.forEach(t => { const o = document.createElement("option"); o.value = t; o.textContent = teamLabel(t).name; og.appendChild(o) });
+    sel.appendChild(og);
+  });
+  if (!allTeams.includes(team)) team = "";
+  sel.value = team;
+}
+
+function teamsHTML(g){
+  const h = teamLabel(g.home), a = teamLabel(g.away);
+  const show = t => esc(t.name);
+  return `<span class="vs">${show(h)}<i>v</i>${show(a)}</span>`;
+}
+function metaHTML(g){
+  const chips = [];
+  if (g.off) chips.push(`<span class="chip warn">${esc(g.notes)}</span>`);
+  if (g.clash) chips.push(`<span class="chip warn">Pitch clash on Full-Time</span>`);
+  if (g.league === "G") chips.push(`<span class="chip">Girls League</span>`);
+  if (g.league === "X") chips.push(`<span class="chip">County Cup</span>`);
+  if (g.format) chips.push(`<span class="chip">${esc(g.format)}</span>`);
+  if ((g.type === "CUP" || g.type === "GFA") && g.league !== "X") chips.push(`<span class="chip">${g.type === "GFA" ? "County Cup" : "Cup"}</span>`);
+  if (g.type === "RROB") chips.push(`<span class="chip">Round robin</span>`);
+  return `<span class="meta">${g.comp ? `<span>${esc(g.comp)}</span>` : ""}${chips.join("")}</span>`;
+}
+const noteHTML = g => g.notes && !g.off ? `<div class="note">${esc(g.notes)}</div>` : "";
+const pitchBadge = (p, label) => `<div class="pitch" aria-label="Pitch ${esc(p)}">${label ? "<small>Pitch</small>" : ""}<span>${esc(p)}</span></div>`;
+const isMine = g => team && (g.home === team || g.away === team);
+
+function render(){
+  $("#v-time").setAttribute("aria-pressed", view === "time");
+  $("#v-pitch").setAttribute("aria-pressed", view === "pitch");
+  $("#clear").hidden = !team;
+  const out = $("#out");
+
+  if (team){
+    // My team: every upcoming game at Burrows Field
+    $("#prev").disabled = $("#next").disabled = true;
+    $("#weeklabel").textContent = teamLabel(team).name;
+    const list = games.filter(isMine).filter(g => g.date >= today).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
+    out.innerHTML = list.length ? `<div class="day"><div class="dayhead"><h2>At Burrows Field</h2><span>${list.length} upcoming ${list.length === 1 ? "game" : "games"}</span></div><div class="mylist">` +
+      list.map(g => `<div class="game">${pitchBadge(g.pitch, true)}<div class="teams"><span class="date">${fmtShort(g.date)} · ${g.time}</span>${teamsHTML(g)}${metaHTML(g)}${noteHTML(g)}</div></div>`).join("") + `</div></div>`
+      : `<div class="empty">No upcoming games at Burrows Field for ${esc(teamLabel(team).name)}. Away games are played at the other club's ground.</div>`;
+    return;
+  }
+
+  if (!weeks.length){ out.innerHTML = `<div class="empty">No games at Burrows Field are listed on FA Full-Time yet.</div>`; return }
+  const w = weeks[wi], end = dObj(w); end.setDate(end.getDate()+6);
+  const inWeek = games.filter(g => g.date >= w && g.date <= ymd(end));
+  const days = [...new Set(inWeek.map(g => g.date))].sort();
+  $("#prev").disabled = wi <= 0; $("#next").disabled = wi >= weeks.length - 1;
+  const first = days[0], last = days[days.length-1];
+  const D = s => dObj(s), wd = s => D(s).toLocaleDateString("en-GB",{weekday:"short"}), mon = s => D(s).toLocaleDateString("en-GB",{month:"short"});
+  $("#weeklabel").textContent = first === last ? `${wd(first)} ${D(first).getDate()} ${mon(first)}`
+    : mon(first) === mon(last) ? `${wd(first)} ${D(first).getDate()} – ${wd(last)} ${D(last).getDate()} ${mon(last)}`
+    : `${wd(first)} ${D(first).getDate()} ${mon(first)} – ${wd(last)} ${D(last).getDate()} ${mon(last)}`;
+
+  out.innerHTML = days.map(d => {
+    const dg = inWeek.filter(g => g.date === d);
+    const head = `<div class="dayhead"><h2>${fmtDay(d)}</h2>${d === today ? '<span class="today">Today</span>' : ""}<span>${dg.length} ${dg.length === 1 ? "game" : "games"} · ${new Set(dg.map(g=>g.pk)).size} pitches</span></div>`;
+    if (view === "time"){
+      const times = [...new Set(dg.map(g => g.time))].sort();
+      return `<section class="day">${head}` + times.map(t => {
+        const tg = dg.filter(g => g.time === t).sort((a,b) => pitchKey(a.pk) - pitchKey(b.pk));
+        return `<div class="slot"><div class="ko">${t}</div><div class="games">` +
+          tg.map(g => `<div class="game">${pitchBadge(g.pitch, true)}<div class="teams">${teamsHTML(g)}${metaHTML(g)}${noteHTML(g)}</div></div>`).join("") + `</div></div>`;
+      }).join("") + `</section>`;
+    }
+    const pitches = [...new Set(dg.map(g => g.pk))].sort((a,b) => pitchKey(a) - pitchKey(b));
+    return `<section class="day">${head}<div class="board">` + pitches.map(p => {
+      const pg = dg.filter(g => g.pk === p).sort((a,b) => a.time.localeCompare(b.time));
+      return `<div class="pcard"><header>${pitchBadge(pg[0].pitch)}<h3>Pitch ${esc(p)}</h3></header><ol>` +
+        pg.map(g => `<li><span class="t">${g.time}</span><div class="teams">${teamsHTML(g)}${metaHTML(g)}${noteHTML(g)}</div></li>`).join("") + `</ol></div>`;
+    }).join("") + `</div></section>`;
+  }).join("");
+}
+
+$("#prev").onclick = () => { if (wi > 0){ wi--; render() } };
+$("#next").onclick = () => { if (wi < weeks.length-1){ wi++; render() } };
+$("#v-time").onclick = () => { view = "time"; store.set("bf-view", view); if (team){ team = ""; sel.value = ""; store.set("bf-team", null) } render() };
+$("#v-pitch").onclick = () => { view = "pitch"; store.set("bf-view", view); if (team){ team = ""; sel.value = ""; store.set("bf-team", null) } render() };
+sel.onchange = () => { team = sel.value; store.set("bf-team", team || null); render() };
+$("#clear").onclick = () => { team = ""; sel.value = ""; store.set("bf-team", null); render() };
+
+function stamp(d){
+  const fmt = s => { const t = new Date(s); return t.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}) + ", " + t.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) };
+  const stale = Object.values(d.sources || {}).filter(s => !s.ok);
+  $("#stamp").innerHTML = `Checked ${fmt(d.generated)}<br><a href="${FT_URL}" target="_blank" rel="noopener">Check FA Full-Time</a>`;
+  $("#stale").hidden = !stale.length;
+  $("#stale").innerHTML = stale.map(s => `<b>${esc(s.label)}</b> couldn't be refreshed from FA Full-Time, so ${s.updated ? "those games are as of " + esc(fmt(s.updated)) : "they may be missing"}.`).join("<br>");
+}
+fetch("fixtures.json?t=" + Date.now(), {cache: "no-store"})
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
+  .then(d => { prepare(d.fixtures || []); setup(); stamp(d); render() })
+  .catch(() => { $("#out").innerHTML = `<div class="empty">The fixture list didn't load. Refresh the page, or <a href="${FT_URL}" target="_blank" rel="noopener">check FA Full-Time</a>.</div>` });
+</script>
+</body>
+</html>
