@@ -1,11 +1,12 @@
 name: Update fixtures
 
+# Manual only for now: FA Full-Time refuses requests from GitHub's servers (HTTP 403, tested 20 Oct 2026).
+# The page loads the club's code snippet live in each visitor's browser instead.
+# To try a scheduled refresh again, add back:
+#   schedule:
+#     - cron: "30 17 * * 1,5"   # Mondays and Fridays, 17:30 UTC
 on:
-  schedule:
-    # Monday and Friday at 17:30 UTC: 17:30 UK time in winter, 18:30 in summer.
-    # GitHub can start scheduled runs some minutes late.
-    - cron: "30 17 * * 1,5"
-  workflow_dispatch: {}   # "Run workflow" button for a manual refresh
+  workflow_dispatch: {}
 
 permissions:
   contents: write

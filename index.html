@@ -256,17 +256,97 @@ $("#v-pitch").onclick = () => { view = "pitch"; store.set("bf-view", view); if (
 sel.onchange = () => { team = sel.value; store.set("bf-team", team || null); render() };
 $("#clear").onclick = () => { team = ""; sel.value = ""; store.set("bf-team", null); render() };
 
-function stamp(d){
-  const fmt = s => { const t = new Date(s); return t.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}) + ", " + t.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) };
-  const stale = Object.values(d.sources || {}).filter(s => !s.ok);
-  $("#stamp").innerHTML = `Checked ${fmt(d.generated)}<br><a href="${FT_URL}" target="_blank" rel="noopener">Check FA Full-Time</a>`;
-  $("#stale").hidden = !stale.length;
-  $("#stale").innerHTML = stale.map(s => `<b>${esc(s.label)}</b> couldn't be refreshed from FA Full-Time, so ${s.updated ? "those games are as of " + esc(fmt(s.updated)) : "they may be missing"}.`).join("<br>");
+/* ---------- Live data: FA Full-Time code snippets, loaded by the visitor's own browser ----------
+   Each snippet is a Full-Time "code snippet" (Full-Time admin > Media > Code Snippets).
+   source: which part of the list it replaces in fixtures.json ("club", "u8", "girls", "cups").
+   league: "C" Cheltenham Youth FL, "G" Gloucester County Girls League, "X" County Cups. */
+const SNIPPETS = [
+  {code: "103522507", source: "club", league: "C", label: "Leckhampton games (Cheltenham Youth League)"},
+  // {code: "", source: "girls", league: "G", label: "Girls League"},
+  // {code: "", source: "u8", league: "C", label: "U8 round robins"},
+];
+const MONTHS = {Jan:"01",Feb:"02",Mar:"03",Apr:"04",May:"05",Jun:"06",Jul:"07",Aug:"08",Sep:"09",Oct:"10",Nov:"11",Dec:"12"};
+const clean = s => (s || "").replace(/\s+/g, " ").trim();
+
+function loadSnippet(sn){
+  return new Promise((resolve, reject) => {
+    const holder = document.createElement("div");
+    holder.id = "lrep" + sn.code; holder.hidden = true;
+    document.body.appendChild(holder);
+    const s = document.createElement("script");
+    s.src = "https://fulltime.thefa.com/js/cs1.html?cs=" + encodeURIComponent(sn.code) + "&random=" + Date.now();
+    const timer = setTimeout(() => reject(new Error("timed out")), 25000);
+    s.onload = () => { clearTimeout(timer); try { resolve(parseSnippet(holder, sn)) } catch(e){ reject(e) } };
+    s.onerror = () => { clearTimeout(timer); reject(new Error("blocked")) };
+    document.head.appendChild(s);
+  });
 }
-fetch("fixtures.json?t=" + Date.now(), {cache: "no-store"})
-  .then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
-  .then(d => { prepare(d.fixtures || []); setup(); stamp(d); render() })
-  .catch(() => { $("#out").innerHTML = `<div class="empty">The fixture list didn't load. Refresh the page, or <a href="${FT_URL}" target="_blank" rel="noopener">check FA Full-Time</a>.</div>` });
+
+function parseSnippet(holder, sn){
+  const out = []; let when = null, last = null, rows = 0;
+  for (const tr of holder.querySelectorAll("tr")){
+    const tds = [...tr.children].filter(e => e.tagName === "TD");
+    if (tds.length === 1){
+      const txt = clean(tds[0].textContent);
+      const m = /^\w{3} (\d{1,2}) (\w{3}) (\d{4})(?: (\d{1,2}:\d{2}))?/.exec(txt);
+      if (m && MONTHS[m[2]]) { when = {date: `${m[3]}-${MONTHS[m[2]]}-${m[1].padStart(2,"0")}`, time: m[4] || ""}; continue }
+      if (last && txt) last.notes = txt;      // e.g. "Postponed" under a game
+      continue;
+    }
+    const link = tr.querySelector('a[href*="isplayFixture"]');
+    const cells = tds.map(td => clean(td.textContent));
+    const vi = cells.indexOf("v");
+    if (!link || !when || vi < 1 || cells.length < vi + 3) continue;
+    rows++; last = null;
+    const venue = cells[vi + 2];
+    if (!/BURROWS/i.test(venue)) continue;
+    const pm = /#\s*([0-9]+[A-Z]?)/i.exec(venue), fm = /(\d+)\s*v\s*(\d+)/i.exec(venue);
+    last = {date: when.date, time: when.time, pitch: pm ? pm[1].toUpperCase() : "?", format: fm ? fm[1] + "v" + fm[2] : "",
+            home: cells[vi - 1], away: cells[vi + 1], comp: "", type: cells[0], notes: "", league: sn.league, source: sn.source,
+            id: (link.getAttribute("href").split("id=")[1] || "")};
+    out.push(last);
+  }
+  holder.remove();
+  if (!rows) throw new Error("empty feed");
+  return out;
+}
+
+const fmtWhen = s => { const t = new Date(s); return t.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}) };
+const keyOf = f => [f.date, f.time, f.home, f.away].join("|");
+
+async function load(){
+  // Snapshot first: covers anything without a live snippet, and stands in if a snippet fails
+  let snap = {fixtures: [], sources: {}};
+  try { const r = await fetch("fixtures.json?t=" + Date.now(), {cache: "no-store"}); if (r.ok) snap = await r.json() } catch(e){}
+  const live = await Promise.allSettled(SNIPPETS.map(loadSnippet));
+  const liveBy = {}, failed = [];
+  live.forEach((r, i) => { if (r.status === "fulfilled") liveBy[SNIPPETS[i].source] = r.value; else failed.push(SNIPPETS[i]) });
+
+  const snapRows = snap.fixtures || [];
+  const notesByKey = Object.fromEntries(snapRows.filter(f => f.notes).map(f => [keyOf(f), f.notes]));
+  const compByKey = Object.fromEntries(snapRows.filter(f => f.comp).map(f => [keyOf(f), f.comp]));
+  let rows = [];
+  for (const src of new Set([...snapRows.map(f => f.source), ...Object.keys(liveBy)])){
+    if (liveBy[src]) rows.push(...liveBy[src]);
+    else if (src === "u8" && liveBy.club) rows.push(...snapRows.filter(f => f.source === "u8" && !f.home.startsWith(HOME) && !f.away.startsWith(HOME)));
+    else rows.push(...snapRows.filter(f => f.source === src));
+  }
+  // The club feed carries Leckhampton's U8 games live; keep the snapshot's goal set-up notes and competition names
+  rows.forEach(f => { const k = keyOf(f); if (!f.notes && notesByKey[k]) f.notes = notesByKey[k]; if (!f.comp && compByKey[k]) f.comp = compByKey[k] });
+  const seen = new Set(); rows = rows.filter(f => { const k = keyOf(f); if (seen.has(k)) return false; seen.add(k); return true });
+  if (!rows.length) throw new Error("no data");
+
+  prepare(rows); setup(); render();
+  const liveNow = Object.keys(liveBy).length;
+  $("#stamp").innerHTML = (liveNow ? "Live from FA Full-Time" : `Checked ${fmtWhen(snap.generated)}`) + `<br><a href="${FT_URL}" target="_blank" rel="noopener">Check FA Full-Time</a>`;
+  const notes = [];
+  failed.forEach(sn => notes.push(`<b>${esc(sn.label)}</b> couldn't be loaded live just now, so those games are as of ${esc(fmtWhen(snap.generated))}. Refresh to try again.`));
+  const snapOnly = Object.entries(snap.sources || {}).filter(([k, s]) => !liveBy[k] && s.count && !failed.some(f => f.source === k));
+  if (snapOnly.length && snap.generated && Date.now() - new Date(snap.generated) > 4 * 864e5)
+    notes.push(`${snapOnly.map(([k, s]) => esc(k === "u8" && liveBy.club ? "Visiting-club U8 games" : s.label)).join(", ")} last checked ${esc(fmtWhen(snap.generated))}.`);
+  $("#stale").hidden = !notes.length; $("#stale").innerHTML = notes.join("<br>");
+}
+load().catch(() => { $("#out").innerHTML = `<div class="empty">The fixture list didn't load. Refresh the page, or <a href="${FT_URL}" target="_blank" rel="noopener">check FA Full-Time</a>.</div>` });
 </script>
 </body>
 </html>
