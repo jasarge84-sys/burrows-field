@@ -123,12 +123,14 @@ footer{color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padd
   <p class="stale" id="stale" hidden></p>
   <main id="out"><div class="empty">Loading fixtures…</div></main>
 
-  <footer>Fixtures and pitch numbers come from FA Full-Time, covering the Cheltenham Youth Football League, the Gloucester County Girls League and the County Cups. The list is checked every Monday and Friday evening. A game only appears here once the league has published it. Times and pitches can change, so check with your manager if a game looks wrong.</footer>
+  <footer>Fixtures and pitch numbers come from FA Full-Time, covering the Cheltenham Youth Football League, the Gloucester County Girls League, the Gloucestershire County Women's Football League and the County Cups. The list is checked every Monday and Friday evening. A game only appears here once the league has published it. Times and pitches can change, so check with your manager if a game looks wrong.</footer>
 </div>
 
 <script>
 
 const HOME = "Leckhampton Rovers Youth ";
+// Our teams: the youth section plus Leckhampton Rovers Women
+const OURS = /^Leckhampton Rovers (Youth )?/;
 const FT_URL = "https://fulltime.thefa.com/fixtures.html?selectedSeason=688737730&selectedDateCode=all&selectedRelatedFixtureOption=3";
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -147,7 +149,8 @@ function prepare(fixtures){
 }
 
 function teamLabel(n){
-  if (n.startsWith(HOME)) return {name: n.slice(HOME.length), ours: true};
+  const m = OURS.exec(n);
+  if (m) return {name: n.slice(m[0].length), ours: true};
   return {name: n.replace(/ \(?Youth\)?(?= )/,"").replace(/ Youth FC/," FC"), ours: false};
 }
 const pitchKey = p => { const m = /^(\d+)([A-Z]?)(.*)$/.exec(p) || [0, 99, "", p]; return +m[1] * 100 + (m[2] ? 10 : 0) + (m[3] ? 1 : 0) };
@@ -170,8 +173,8 @@ function setup(){
 
   // Team picker: Leckhampton teams first, then visitors
   allTeams = [...new Set(games.flatMap(g => [g.home, g.away]))];
-  const ours = allTeams.filter(t => t.startsWith(HOME)).sort((a,b) => teamLabel(a).name.localeCompare(teamLabel(b).name, "en", {numeric:true}));
-  const others = allTeams.filter(t => !t.startsWith(HOME)).sort();
+  const ours = allTeams.filter(t => OURS.test(t)).sort((a,b) => teamLabel(a).name.localeCompare(teamLabel(b).name, "en", {numeric:true}));
+  const others = allTeams.filter(t => !OURS.test(t)).sort();
   [["Leckhampton Rovers", ours], ["Visiting teams", others]].forEach(([label, list]) => {
     const og = document.createElement("optgroup"); og.label = label;
     list.forEach(t => { const o = document.createElement("option"); o.value = t; o.textContent = teamLabel(t).name; og.appendChild(o) });
@@ -191,6 +194,7 @@ function metaHTML(g){
   if (g.off) chips.push(`<span class="chip warn">${esc(g.notes)}</span>`);
   if (g.clash) chips.push(`<span class="chip warn">Pitch clash on Full-Time</span>`);
   if (g.league === "G") chips.push(`<span class="chip">Girls League</span>`);
+  if (g.league === "W") chips.push(`<span class="chip">Women's League</span>`);
   if (g.league === "X") chips.push(`<span class="chip">County Cup</span>`);
   if (g.format) chips.push(`<span class="chip">${esc(g.format)}</span>`);
   if ((g.type === "CUP" || g.type === "GFA") && g.league !== "X") chips.push(`<span class="chip">${g.type === "GFA" ? "County Cup" : "Cup"}</span>`);
@@ -258,8 +262,8 @@ $("#clear").onclick = () => { team = ""; sel.value = ""; store.set("bf-team", nu
 
 /* ---------- Live data: FA Full-Time code snippets, loaded by the visitor's own browser ----------
    Each snippet is a Full-Time "code snippet" (Full-Time admin > Media > Code Snippets).
-   source: which part of the list it replaces in fixtures.json ("club", "u8", "girls", "cups").
-   league: "C" Cheltenham Youth FL, "G" Gloucester County Girls League, "X" County Cups. */
+   source: which part of the list it replaces in fixtures.json ("club", "u8", "girls", "women", "cups").
+   league: "C" Cheltenham Youth FL, "G" Gloucester County Girls League, "W" Gloucestershire County Women's FL, "X" County Cups. */
 const SNIPPETS = [
   {code: "103522507", source: "club", league: "C", label: "Leckhampton games (Cheltenham Youth League)"},
   // {code: "", source: "girls", league: "G", label: "Girls League"},
