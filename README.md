@@ -1,6 +1,6 @@
 # Burrows Field matchday page
 
-A one-page website showing Leckhampton Rovers Youth home games at Burrows Field: kick-off times and pitch allocations, by weekend, by pitch, or for one team.
+A one-page website showing Leckhampton Rovers Youth and Leckhampton Rovers Women home games at Burrows Field: kick-off times and pitch allocations, by weekend, by pitch, or for one team.
 
 Fixtures come from FA Full-Time. Leckhampton's Cheltenham Youth League games load **live** in each visitor's browser from the club's Full-Time code snippet, so they're always current. Everything else comes from `fixtures.json`, a saved snapshot.
 
@@ -19,18 +19,19 @@ Any Full-Time code snippet can be added to the `SNIPPETS` list in `index.html` (
 
 ### Snapshot (`fixtures.json`)
 
-The script reads four sources and keeps only games whose venue is Burrows Field:
+The script reads five sources and keeps only games whose venue is Burrows Field:
 
 1. **Club feed**: the club's Full-Time code snippet (code `103522507`). This covers all Leckhampton Rovers Youth games in the Cheltenham Youth Football League except U8s.
 2. **U8 round robins**: the Cheltenham Youth Football League fixtures list, U8 age group. This adds U8 games between visiting clubs at Burrows Field and the goal set-up notes.
 3. **Girls League**: the Gloucester County Girls League fixtures list.
-4. **County Cups**: the Gloucestershire FA County Cups fixtures list.
+4. **Women's League**: the Gloucestershire County Women's Football League fixtures list (Leckhampton Rovers Women).
+5. **County Cups**: the Gloucestershire FA County Cups fixtures list.
 
 If one source fails on a run, the page keeps that source's games from the previous run and shows a note saying which part couldn't be refreshed. If every source fails, nothing is changed and GitHub emails the repository owner.
 
 ## Pitches
 
-The pitch is read from the venue text on Full-Time, for example `BURROWS FIELD #4` or `BURROWS FIELD 9v9 - Pitch #4`. Girls League 5v5 Pitch 1 is treated as a separate pitch from Pitch 1. A "Pitch clash on Full-Time" warning appears when two games are listed on the same pitch at the same kick-off.
+The pitch is read from the venue text on Full-Time, for example `BURROWS FIELD #4` or `BURROWS FIELD 9v9 - Pitch #4`. Girls League 5v5 Pitch 1 is treated as a separate pitch from Pitch 1. The Women's League lists the venue as plain `BURROWS FIELD` with no pitch, so those games show a `?` pitch. A "Pitch clash on Full-Time" warning appears when two games are listed on the same pitch at the same kick-off.
 
 ## Common jobs
 

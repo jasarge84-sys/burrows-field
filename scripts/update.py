@@ -6,6 +6,7 @@ Sources (each one succeeds or fails on its own; a failed source keeps its last g
   u8     - Cheltenham Youth Football League fixtures list, U8 age group only. Picks up U8
            round-robin games between visiting clubs at Burrows Field, plus match notes.
   girls  - Gloucester County Girls League fixtures list.
+  women  - Gloucestershire County Women's Football League fixtures list (Leckhampton Rovers Women).
   cups   - Gloucestershire FA County Cups fixtures list.
 Only games whose venue mentions Burrows Field are kept.
 """
@@ -26,6 +27,7 @@ BASE = "https://fulltime.thefa.com"
 CLUB_SNIPPET_CODE = "103522507"
 CYFL_LEAGUE = "4333696"
 GIRLS_LEAGUE = "1073825"
+WOMENS_LEAGUE = "879242925"
 CUPS_LEAGUE = "912256431"
 VENUE_MATCH = re.compile(r"BURROWS", re.I)
 UK = ZoneInfo("Europe/London")
@@ -188,6 +190,7 @@ SOURCES = {
     "club":  ("Leckhampton games (club feed)", fetch_club_snippet),
     "u8":    ("U8 round robins", lambda: fetch_league(CYFL_LEAGUE, "C", "u8", age_group="U8")),
     "girls": ("Girls League", lambda: fetch_league(GIRLS_LEAGUE, "G", "girls")),
+    "women": ("Women's League", lambda: fetch_league(WOMENS_LEAGUE, "W", "women")),
     "cups":  ("County Cups", lambda: fetch_league(CUPS_LEAGUE, "X", "cups")),
 }
 
